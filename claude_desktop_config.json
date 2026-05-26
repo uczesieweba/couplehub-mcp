@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "couplehub": {
+      "command": "mcp-proxy",
+      "args": ["https://YOUR_SUBDOMAIN.host740041.xce.pl/sse"]
+    }
+  }
+}
