@@ -1,0 +1,2 @@
+# couplehub-mcp
+CoupleHub
