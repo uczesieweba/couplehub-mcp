@@ -10,8 +10,7 @@ API_BASE = "https://host740041.xce.pl/CoupleHub_DEV/api"
 
 mcp = FastMCP("CoupleHub")
 
-# Expose as ASGI app for uvicorn
-app = mcp.sse_app()
+
 
 
 def api(method: str, path: str, **kwargs):
@@ -150,3 +149,6 @@ def get_ingredients(search: str = "", category: str = "") -> list:
     if category:
         params["category"] = category
     return api("GET", "/ingredients", params=params)
+
+# Expose as ASGI app for uvicorn
+app = mcp.sse_app()
