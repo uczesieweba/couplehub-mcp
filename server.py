@@ -1,10 +1,6 @@
-"""
-CoupleHub MCP Server
-Wraps the CoupleHub API as MCP tools for Claude/ChatGPT.
-"""
-
+import os
 import httpx
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 
 API_BASE = "https://host740041.xce.pl/CoupleHub_DEV/api"
 
@@ -149,12 +145,10 @@ def get_ingredients(search: str = "", category: str = "") -> list:
     return api("GET", "/ingredients", params=params)
 
 
-# ASGI app for uvicorn - must be at bottom after all tools registered
-app = mcp.sse_app()
-
-
 if __name__ == "__main__":
-    import os
-    import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    mcp.run(
+        transport="sse",
+        host="0.0.0.0",
+        port=port,
+    )
