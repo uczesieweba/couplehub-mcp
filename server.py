@@ -11,8 +11,6 @@ API_BASE = "https://host740041.xce.pl/CoupleHub_DEV/api"
 mcp = FastMCP("CoupleHub")
 
 
-
-
 def api(method: str, path: str, **kwargs):
     with httpx.Client(timeout=15) as client:
         r = client.request(method, f"{API_BASE}{path}", **kwargs)
@@ -150,5 +148,13 @@ def get_ingredients(search: str = "", category: str = "") -> list:
         params["category"] = category
     return api("GET", "/ingredients", params=params)
 
-# Expose as ASGI app for uvicorn
+
+# ASGI app for uvicorn - must be at bottom after all tools registered
 app = mcp.sse_app()
+
+
+if __name__ == "__main__":
+    import os
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

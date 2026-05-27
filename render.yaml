@@ -3,4 +3,4 @@ services:
     name: couplehub-mcp
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}
+    startCommand: python server.py
