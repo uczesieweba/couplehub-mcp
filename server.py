@@ -7,9 +7,15 @@ import httpx
 from typing import Optional
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
+from mcp.types import ToolAnnotations
 
 API_BASE = "https://host740041.xce.pl/CoupleHub_DEV/api"
 mcp = FastMCP("CoupleHub")
+
+# Annotation presets
+READ       = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+WRITE      = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True)
+DESTRUCTIVE = ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=True)
 
 
 def api(method: str, path: str, **kwargs):
@@ -44,7 +50,7 @@ class MealEntry(BaseModel):
 
 # ── RECIPES ───────────────────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=READ)
 def get_recipes(search: str = "", is_side: Optional[int] = None) -> list:
     """
     MEAL PLANNING STEP 2. Call once with no filters to get all recipes,
@@ -58,13 +64,13 @@ def get_recipes(search: str = "", is_side: Optional[int] = None) -> list:
     return api("GET", "/recipes", params=params)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ)
 def get_recipe(id: int) -> dict:
     """Get full recipe with ingredients, instructions, ratings."""
     return api("GET", f"/recipes/{id}")
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def create_recipe(
     name: str,
     instructions: str,
@@ -94,7 +100,7 @@ def create_recipe(
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def update_recipe(
     id: int,
     name: Optional[str] = None,
@@ -122,13 +128,13 @@ def update_recipe(
     return api("PATCH", f"/recipes/{id}", json=body)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_recipe(id: int) -> dict:
     """Delete a recipe permanently. Confirm with user before calling."""
     return api("DELETE", f"/recipes/{id}")
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def rate_recipe(recipe_id: int, user_id: int, rating: int, notes: str = "") -> dict:
     """
     Rate a recipe 1-5. Call when user says 'that was a 4/5' or similar.
@@ -141,7 +147,7 @@ def rate_recipe(recipe_id: int, user_id: int, rating: int, notes: str = "") -> d
 
 # ── ITEM CATALOGUE ────────────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=READ)
 def get_items(search: str = "", category: str = "") -> list:
     """
     Search item catalogue. Call before adding recipe ingredients to find
@@ -156,7 +162,7 @@ def get_items(search: str = "", category: str = "") -> list:
     return api("GET", "/items", params=params)
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def create_item(name: str, category: str, default_unit: str) -> dict:
     """
     Add item to catalogue. Usually not needed directly — items auto-create
@@ -168,7 +174,7 @@ def create_item(name: str, category: str, default_unit: str) -> dict:
 
 # ── MEAL CALENDAR ─────────────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=READ)
 def get_meal_calendar(from_date: str = "", to_date: str = "") -> dict:
     """
     Get meal entries and calendar events for a date range (YYYY-MM-DD).
@@ -181,7 +187,7 @@ def get_meal_calendar(from_date: str = "", to_date: str = "") -> dict:
     return api("GET", "/meal-calendar", params=params)
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def upsert_meal_calendar(created_by: int, entries: list[MealEntry]) -> dict:
     """
     MEAL PLANNING STEP 4. Schedule meals in a SINGLE call with all entries
@@ -198,7 +204,7 @@ def upsert_meal_calendar(created_by: int, entries: list[MealEntry]) -> dict:
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def update_meal_calendar_entry(
     id: int,
     recipe_id: Optional[int] = None,
@@ -218,7 +224,7 @@ def update_meal_calendar_entry(
     return api("PATCH", f"/meal-calendar/{id}", json=body)
 
 
-@mcp.tool()
+@mcp.tool(annotations=DESTRUCTIVE)
 def delete_meal_calendar_entry(id: int) -> dict:
     """
     Delete a meal entry. Auto-cleans unactioned grocery rows.
@@ -229,7 +235,7 @@ def delete_meal_calendar_entry(id: int) -> dict:
 
 # ── CALENDAR EVENTS ───────────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=READ)
 def get_calendar_events(from_date: str = "", to_date: str = "") -> list:
     """List calendar events by date range. Call before creating to avoid duplicates."""
     params = {}
@@ -238,7 +244,7 @@ def get_calendar_events(from_date: str = "", to_date: str = "") -> list:
     return api("GET", "/calendar-events", params=params)
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def create_calendar_event(
     created_by: int,
     title: str,
@@ -276,7 +282,7 @@ def create_calendar_event(
     return api("POST", "/calendar-events", json=body)
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def delete_calendar_event(id: int) -> dict:
     """Delete a calendar event. Get id from get_calendar_events first."""
     return api("DELETE", f"/calendar-events/{id}")
@@ -284,7 +290,7 @@ def delete_calendar_event(id: int) -> dict:
 
 # ── RECOMMENDED GROCERY ───────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def generate_recommended_grocery(created_by: int, meal_calendar_ids: list[int]) -> dict:
     """
     MEAL PLANNING STEP 5. Call immediately after upsert_meal_calendar
@@ -299,7 +305,7 @@ def generate_recommended_grocery(created_by: int, meal_calendar_ids: list[int]) 
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ)
 def get_recommended_grocery(from_date: str = "", to_date: str = "") -> list:
     """Get pending grocery recommendations not yet promoted or rejected."""
     params = {}
@@ -308,7 +314,7 @@ def get_recommended_grocery(from_date: str = "", to_date: str = "") -> list:
     return api("GET", "/recommended-grocery", params=params)
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def add_recommended_grocery(
     item_name: str,
     quantity: float,
@@ -323,7 +329,7 @@ def add_recommended_grocery(
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def promote_recommended_grocery(item_ids: list[int], created_by: int = 3) -> dict:
     """
     Move recommended items to active grocery list.
@@ -335,7 +341,7 @@ def promote_recommended_grocery(item_ids: list[int], created_by: int = 3) -> dic
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def reject_recommended_grocery(item_ids: list[int]) -> dict:
     """
     Reject recommended items — already have them.
@@ -346,13 +352,13 @@ def reject_recommended_grocery(item_ids: list[int]) -> dict:
 
 # ── GROCERY LIST ──────────────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=READ)
 def get_grocery_list() -> list:
     """Get active shopping list. Call when user asks what's on the list."""
     return api("GET", "/grocery-list")
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def add_grocery_list_item(
     item_name: str,
     quantity: float,
@@ -371,7 +377,7 @@ def add_grocery_list_item(
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def mark_grocery_bought(ids: list[int]) -> dict:
     """
     Mark grocery list rows as purchased.
@@ -380,7 +386,7 @@ def mark_grocery_bought(ids: list[int]) -> dict:
     return api("POST", "/grocery-list/bought", json={"ids": ids})
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def remove_grocery_list_item(ids: list[int]) -> dict:
     """
     Remove items from grocery list — found in pantry or changed mind.
@@ -391,7 +397,7 @@ def remove_grocery_list_item(ids: list[int]) -> dict:
 
 # ── RECEIPTS ──────────────────────────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def upload_receipt(image_base64: str, created_by: int = 3, media_type: str = "image/jpeg") -> dict:
     """
     RECEIPT STEP 1. Upload photo as base64. Returns receipt_id.
@@ -403,7 +409,7 @@ def upload_receipt(image_base64: str, created_by: int = 3, media_type: str = "im
     })
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def update_receipt(
     id: int,
     store_name: Optional[str] = None,
@@ -421,7 +427,7 @@ def update_receipt(
     return api("PATCH", f"/receipts/{id}", json=body)
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE)
 def confirm_receipt(id: int) -> dict:
     """RECEIPT STEP 3. Mark receipt confirmed. Only after user approves parsed details."""
     return api("POST", f"/receipts/{id}/confirm")
