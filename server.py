@@ -83,9 +83,9 @@ def create_recipe(
 ) -> dict:
     """
     MEAL PLANNING STEP 3 — only call after explicit user approval.
-    Before calling: resolve each ingredient via get_items to find item_id
-    and default_unit. All quantities per 1 serving.
-    suggested_sides: list of recipe name strings.
+    Before calling: call get_items ONCE with no filter to get full catalogue,
+    then resolve all ingredients locally in one pass — never search per ingredient.
+    All quantities per 1 serving. suggested_sides: list of recipe name strings.
     Never save without user confirmation.
     """
     return api("POST", "/recipes", json={
@@ -150,10 +150,11 @@ def rate_recipe(recipe_id: int, user_id: int, rating: int, notes: str = "") -> d
 @mcp.tool(annotations=READ)
 def get_items(search: str = "", category: str = "") -> list:
     """
-    Search item catalogue. Call before adding recipe ingredients to find
-    existing item_id and default_unit. If item found use its id and unit.
-    If not found, include category+default_unit in ingredient so item
-    auto-creates on recipe save.
+    Fetch item catalogue. Call ONCE with no filters to get the full list,
+    then match ingredients locally — never call per ingredient in a loop.
+    If item found in results: use its item_id and default_unit.
+    If not found: include category+default_unit in the ingredient so
+    item_lu auto-creates on recipe save. No second API call needed.
     Categories: produce|meat|dairy|pantry|bakery|frozen|drinks|household|other.
     """
     params = {}
@@ -365,15 +366,20 @@ def add_grocery_list_item(
     unit: str,
     created_by: int = 3,
     item_id: Optional[int] = None,
+    is_urgent: int = 0,
 ) -> dict:
     """
     Add item directly to grocery list — skips recommended stage.
     Use for non-recipe items: toilet paper, household goods, anything
     the user says to add to the shopping list not from a recipe.
+    is_urgent=1 triggers an EMERGENCY GROCERY card on today's calendar.
+    Set is_urgent=1 when user says: 'urgently', 'running out', 'need today',
+    'need tomorrow', 'emergency', 'ASAP'.
     """
     return api("POST", "/grocery-list", json={
         "created_by": created_by, "item_id": item_id,
         "item_name": item_name, "quantity": quantity, "unit": unit,
+        "is_urgent": is_urgent,
     })
 
 
