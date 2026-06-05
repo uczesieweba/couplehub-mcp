@@ -12,10 +12,10 @@ from mcp.types import ToolAnnotations
 API_BASE = "https://host740041.xce.pl/CoupleHub_DEV/api"
 mcp = FastMCP("CoupleHub")
 
-# Annotation presets
-READ       = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
-WRITE      = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True)
-DESTRUCTIVE = ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=True)
+# Annotation presets — all four hints explicitly set to avoid conservative defaults
+READ        = ToolAnnotations(readOnlyHint=True,  destructiveHint=False, idempotentHint=True,  openWorldHint=True)
+WRITE       = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=True)
+DESTRUCTIVE = ToolAnnotations(readOnlyHint=False, destructiveHint=True,  idempotentHint=False, openWorldHint=True)
 
 
 def api(method: str, path: str, **kwargs):
