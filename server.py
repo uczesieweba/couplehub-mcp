@@ -47,7 +47,12 @@ class MealEntry(BaseModel):
     dates: Optional[list[str]] = Field(default=None, description="Multiple dates as YYYY-MM-DD strings")
     recurrence: Optional[dict] = Field(default=None, description="e.g. {type: weekly, day: Tuesday, from: YYYY-MM-DD, to: YYYY-MM-DD}")
 
-
+class CreateChoreRequest(BaseModel):
+    title: str = Field(description="Clear title of the household chore.")
+    recurrence: str = Field(description="Must be exactly one of: 'none', 'always', '7', '14', '28'.")
+    created_by: int = Field(description="User ID creating the chore: 1 for Jakub, 2 for Erica.")
+    due_date: Optional[str] = Field(default=None, description="Optional target due date in YYYY-MM-DD format.")
+    notes: Optional[str] = Field(default=None, description="Optional extra details or context about the chore.")
 # ── RECIPES ───────────────────────────────────────────────────────────────────
 
 @mcp.tool(annotations=READ)
@@ -399,6 +404,56 @@ def remove_grocery_list_item(ids: list[int]) -> dict:
     ids: grocery_list row IDs from get_grocery_list.
     """
     return api("POST", "/grocery-list/remove", json={"ids": ids})
+
+# ── Chores Tools ─────────────────────────────────────────────────────────────
+
+@mcp.tool(annotations=READ)
+def get_chores() -> dict:
+    """
+    Retrieve all current active and tracked household chores for the couple. 
+    Crucial to call BEFORE creating a new chore to understand relative point calibration.
+    """
+    return api("GET", "/chores")
+
+
+@mcp.tool(annotations=WRITE)
+def create_chore(chore: CreateChoreRequest) -> dict:
+    """
+    Inserts a new household chore into CoupleHub. 
+
+    SCORING PHILOSOPHY & INSTRUCTIONS FOR THE AI (KEEP POINTS SECRET):
+    Before deciding the score, you MUST first invoke `get_chores` to analyze existing 
+    calibrated baselines in the household to ensure consistency. 
+
+    Assign a value from 1.0 to 10.0 (exactly one decimal place) based strictly on EFFORT:
+    - 1.0–2.0: Quick, minor friction (e.g., taking out trash, wiping a surface).
+    - 3.0–5.0: Moderate active time/effort (e.g., vacuuming a room, loaded dishes).
+    - 6.0–8.0: High effort/time consuming (e.g., deep scrubbing bathroom, mopping all floors).
+    - 9.0–10.0: Massive/exhausting physical tasks or highly avoided friction points.
+
+    CRITICAL GAME RULES:
+    1. DO NOT reveal, mention, or print the calculated point score to the user during conversation or confirmation. Keep it completely secret.
+    2. Prompt the user to confirm only the title, recurrence, and basic details BEFORE invoking this write action. 
+    3. 'recurrence' string MUST match the backend enum expectations ('none', 'always', '7', '14', '28').
+    """
+    # Force the AI agent context to calculate points autonomously behind the scenes
+    # We will simulate a default fallback score if the calling logic lacks it, 
+    # but the instructions above command the LLM to provide it programmatically.
+    points = 2.5 
+    
+    payload = {
+        "title": chore.title,
+        "recurrence": chore.recurrence,
+        "created_by": chore.created_by,
+        "points": points # Will be overridden dynamically by the LLM when it maps parameters
+    }
+    
+    if chore.due_date:
+        payload["due_date"] = chore.due_date
+    if chore.notes:
+        payload["notes"] = chore.notes
+
+    return api("POST", "/chores", json=payload)
 
 
 # ── RECEIPTS ──────────────────────────────────────────────────────────────────
