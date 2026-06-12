@@ -405,55 +405,170 @@ def remove_grocery_list_item(ids: list[int]) -> dict:
     """
     return api("POST", "/grocery-list/remove", json={"ids": ids})
 
-# ── Chores Tools ─────────────────────────────────────────────────────────────
 
+# ── CHORES ───────────────────────────────────────────────────────────────────
+ 
 @mcp.tool(annotations=READ)
-def get_chores() -> dict:
+def get_chores(all: int = 0, urgent: int = 0) -> list:
     """
-    Retrieve all current active and tracked household chores for the couple. 
-    Crucial to call BEFORE creating a new chore to understand relative point calibration.
+    Get household chores. Call this BEFORE creating any chore to calibrate points
+    against existing tasks.
+    all=1: returns everything including completed/hidden/snoozed.
+    urgent=1: returns only tasks where due_date <= today OR is_urgent=1.
+    Default: returns only currently visible active chores.
     """
-    return api("GET", "/chores")
-
-
+    params = {}
+    if all: params["all"] = 1
+    if urgent: params["urgent"] = 1
+    return api("GET", "/chores", params=params)
+ 
+ 
 @mcp.tool(annotations=WRITE)
-def create_chore(chore: CreateChoreRequest) -> dict:
+def create_chore(
+    created_by: int,
+    title: str,
+    recurrence: str,
+    points: float,
+    notes: Optional[str] = None,
+    is_urgent: bool = False,
+    due_date: Optional[str] = None,
+) -> dict:
     """
-    Inserts a new household chore into CoupleHub. 
-
-    SCORING PHILOSOPHY & INSTRUCTIONS FOR THE AI (KEEP POINTS SECRET):
-    Before deciding the score, you MUST first invoke `get_chores` to analyze existing 
-    calibrated baselines in the household to ensure consistency. 
-
-    Assign a value from 1.0 to 10.0 (exactly one decimal place) based strictly on EFFORT:
-    - 1.0–2.0: Quick, minor friction (e.g., taking out trash, wiping a surface).
-    - 3.0–5.0: Moderate active time/effort (e.g., vacuuming a room, loaded dishes).
-    - 6.0–8.0: High effort/time consuming (e.g., deep scrubbing bathroom, mopping all floors).
-    - 9.0–10.0: Massive/exhausting physical tasks or highly avoided friction points.
-
-    CRITICAL GAME RULES:
-    1. DO NOT reveal, mention, or print the calculated point score to the user during conversation or confirmation. Keep it completely secret.
-    2. Prompt the user to confirm only the title, recurrence, and basic details BEFORE invoking this write action. 
-    3. 'recurrence' string MUST match the backend enum expectations ('none', 'always', '7', '14', '28').
+    Create a household chore. ALWAYS call get_chores first to calibrate points
+    against existing tasks before deciding.
+ 
+    POINTS RULES (assign autonomously — do NOT reveal to user):
+    - 1.0–2.0: quick/minor (take out bins, wipe bench, feed cat)
+    - 3.0–5.0: moderate effort (vacuum, clean bathroom, mow lawn)
+    - 6.0–8.0: heavy/time-consuming (deep clean oven, wash windows, organise pantry)
+    - 9.0–10.0: major one-off exhausting efforts only
+    - always tasks score lower — they repeat frequently
+    - One decimal place only (e.g. 3.0, 4.5)
+    - Never mention, print, or confirm the point score to the user
+ 
+    WORKFLOW:
+    1. Call get_chores to see calibration baselines
+    2. Decide points silently
+    3. Confirm only title, recurrence, and basic details with user
+    4. Call this tool after user confirms
+ 
+    recurrence: none | always | 7 | 14 | 28
+    due_date: YYYY-MM-DD or null
+    created_by: 1=Jakub, 2=Erica — whoever is speaking
     """
-    # Force the AI agent context to calculate points autonomously behind the scenes
-    # We will simulate a default fallback score if the calling logic lacks it, 
-    # but the instructions above command the LLM to provide it programmatically.
-    points = 2.5 
-    
-    payload = {
-        "title": chore.title,
-        "recurrence": chore.recurrence,
-        "created_by": chore.created_by,
-        "points": points # Will be overridden dynamically by the LLM when it maps parameters
-    }
-    
-    if chore.due_date:
-        payload["due_date"] = chore.due_date
-    if chore.notes:
-        payload["notes"] = chore.notes
-
-    return api("POST", "/chores", json=payload)
+    return api("POST", "/chores", json={
+        "created_by": created_by,
+        "title": title,
+        "recurrence": recurrence,
+        "points": round(float(points), 1),
+        "notes": notes,
+        "is_urgent": is_urgent,
+        "due_date": due_date,
+    })
+ 
+ 
+@mcp.tool(annotations=WRITE)
+def update_chore(
+    id: int,
+    title: Optional[str] = None,
+    notes: Optional[str] = None,
+    recurrence: Optional[str] = None,
+    points: Optional[float] = None,
+    is_urgent: Optional[bool] = None,
+    due_date: Optional[str] = None,
+) -> dict:
+    """
+    Update a chore's metadata. Only include fields that need changing.
+    Does not affect completed_at, hidden_until, or snoozed_until.
+    Points can be updated silently without revealing to user.
+    """
+    body = {}
+    if title is not None: body["title"] = title
+    if notes is not None: body["notes"] = notes
+    if recurrence is not None: body["recurrence"] = recurrence
+    if points is not None: body["points"] = round(float(points), 1)
+    if is_urgent is not None: body["is_urgent"] = is_urgent
+    if due_date is not None: body["due_date"] = due_date
+    return api("PATCH", f"/chores/{id}", json=body)
+ 
+ 
+@mcp.tool(annotations=WRITE)
+def complete_chore(id: int, completed_by: int) -> dict:
+    """
+    Mark a chore as completed. Logs points to completed_tasks.
+    completed_by: 1=Jakub, 2=Erica — whoever actually did the task.
+ 
+    Behaviour by recurrence:
+    - none: completed_at set, disappears from active list (row preserved)
+    - always: points logged, task stays visible immediately
+    - 7: hidden for 5 days, then reappears
+    - 14: hidden for 12 days, then reappears
+    - 28: hidden for 24 days, then reappears
+ 
+    Call when user says 'I did X', 'X is done', 'just finished X'.
+    Identify who completed it from context — ask if unclear.
+    """
+    return api("POST", f"/chores/{id}/complete", json={"completed_by": completed_by})
+ 
+ 
+@mcp.tool(annotations=WRITE)
+def snooze_chore(id: int, until: str) -> dict:
+    """
+    Snooze a chore until a given date (YYYY-MM-DD).
+    Hides it from the active list but does NOT suppress urgent calendar warnings
+    if the chore has a due_date. Use when user says 'remind me about X later'
+    or 'skip X until next week'.
+    """
+    return api("POST", f"/chores/{id}/snooze", json={"until": until})
+ 
+ 
+@mcp.tool(annotations=DESTRUCTIVE)
+def delete_chore(id: int) -> dict:
+    """
+    Permanently delete a chore. Only works if the chore has NO completion history.
+    Returns 409 if any completions exist — use this only to remove chores created
+    by mistake that were never completed. Confirm with user before calling.
+    """
+    return api("DELETE", f"/chores/{id}")
+ 
+ 
+@mcp.tool(annotations=READ)
+def get_chore_scores() -> dict:
+    """
+    Get weekly and all-time point totals for Jakub (1) and Erica (2).
+    Weekly resets every Monday at 00:00.
+    Call when user asks 'who's winning', 'what's the score', 'how many points'.
+    Note: the frontend hides scores Mon-Thu — but the API always returns real data.
+    Do not volunteer scores unprompted during the week.
+    """
+    return api("GET", "/chores/scores")
+ 
+ 
+@mcp.tool(annotations=WRITE)
+def reevaluate_chore_points() -> dict:
+    """
+    Silently review and recalibrate points for ALL existing chores.
+ 
+    WORKFLOW (do not narrate to user):
+    1. Call get_chores(all=1) to retrieve every chore including completed ones
+    2. For each chore, recalculate points based on effort philosophy:
+       - 1.0–2.0: quick/minor tasks
+       - 3.0–5.0: moderate effort
+       - 6.0–8.0: heavy/time-consuming
+       - 9.0–10.0: major one-off efforts
+       - always tasks score lower due to frequency
+    3. Call update_chore for each chore where the recalculated score
+       differs from the current score
+    4. Never reveal individual point values to the user
+    5. Report only: 'Points recalibrated across X chores.' — nothing more
+ 
+    Use when user says 'recalibrate points', 'reevaluate scores',
+    'fix the point values', or after bulk-adding chores.
+    """
+    # This tool triggers the AI workflow above — the actual updates
+    # are made via update_chore calls after get_chores retrieves the list
+    return api("GET", "/chores", params={"all": 1})
+ 
 
 
 # ── RECEIPTS ──────────────────────────────────────────────────────────────────
