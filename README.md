@@ -18,10 +18,11 @@ database settings to the local socket, checks rejection cases, and verifies MCP
 reads plus temporary chore CRUD/cleanup. It stops its test servers afterward.
 It does not connect to production or test ChatGPT's hosted connector/OAuth flow.
 
-This only protects MCP-to-PHP. The SSE endpoint below still has no client
-authentication and must not be exposed publicly with a privileged backend token.
-ChatGPT-to-MCP OAuth and a dashboard browser login remain prerequisites for a
-production rollout. Nothing in this change deploys or modifies production.
+MCP client authentication now defaults to Auth0 and fails closed without its
+configuration. See [AUTH0_SETUP.md](AUTH0_SETUP.md) for tenant/application setup,
+household access restrictions and the remaining hosted verification steps.
+Dashboard browser login is still a prerequisite for a production rollout.
+Nothing in this change deploys or modifies production.
 
 ## Deploy to Render
 

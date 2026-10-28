@@ -1,5 +1,9 @@
 # CoupleHub MCP Server — Documentation
 
+> Historical documentation below describes the old unauthenticated deployment.
+> The authentication branch now requires Auth0 configuration and a separate PHP
+> service token. Follow AUTH0_SETUP.md and README.md for the current branch.
+
 ## Overview
 
 The CoupleHub MCP (Model Context Protocol) server exposes the CoupleHub PHP API as AI-callable tools. It allows AI assistants (Claude, ChatGPT) to read and write meal plans, recipes, calendar events, and grocery lists on your behalf during conversation.

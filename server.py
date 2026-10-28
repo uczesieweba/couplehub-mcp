@@ -8,10 +8,11 @@ from typing import Optional
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 from mcp.types import ToolAnnotations
+from auth_config import build_auth
 
 # No production default: local/staging runs must select their backend explicitly.
 API_BASE = os.environ.get("COUPLEHUB_API_BASE", "").rstrip("/")
-mcp = FastMCP("CoupleHub")
+mcp = FastMCP("CoupleHub", auth=build_auth())
 
 # Annotation presets — all four hints explicitly set to avoid conservative defaults
 READ        = ToolAnnotations(readOnlyHint=True,  destructiveHint=False, idempotentHint=True,  openWorldHint=True)
@@ -631,4 +632,5 @@ def confirm_receipt(id: int) -> dict:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    mcp.run(transport="sse", host="0.0.0.0", port=port)
+    host = "127.0.0.1" if os.environ.get("COUPLEHUB_AUTH_MODE") == "local" else "0.0.0.0"
+    mcp.run(transport="sse", host=host, port=port)

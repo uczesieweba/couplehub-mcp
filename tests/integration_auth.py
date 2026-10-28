@@ -47,6 +47,8 @@ async def exercise_mcp(url):
 
         async def call(name, arguments=None):
             content = await mcp.call_tool(name, arguments)
+            if hasattr(content, 'content'):
+                content = content.content
             text = [part.text for part in content if part.type == 'text']
             # FastMCP 2.2 serializes list results as one content item per row.
             parsed = [json.loads(value) for value in text]
@@ -85,7 +87,7 @@ def main():
     env = os.environ.copy()
     env.update(COUPLEHUB_DB_HOST='localhost', COUPLEHUB_DB_NAME='couplehub_dev',
                COUPLEHUB_DB_USER='agent', COUPLEHUB_DB_PASSWORD='',
-               COUPLEHUB_API_TOKEN=token, COUPLEHUB_API_BASE=base)
+               COUPLEHUB_API_TOKEN=token, COUPLEHUB_API_BASE=base, COUPLEHUB_AUTH_MODE='local')
     php = [str(RUNTIME / 'php'), '-d', f'pdo_mysql.default_socket={RUNTIME}/mysql.sock']
     processes = []
     try:
@@ -118,7 +120,7 @@ def main():
 
         import sys
         command = [sys.executable, '-c',
-                   f'import server, uvicorn; uvicorn.run(server.mcp.sse_app(), host="127.0.0.1", port={mcp_port}, log_level="error")']
+                   f'import server, uvicorn; uvicorn.run(server.mcp.http_app(transport="sse"), host="127.0.0.1", port={mcp_port}, log_level="error")']
         p = start(command, env)
         url = f'http://127.0.0.1:{mcp_port}/sse'
         ready(url, p)

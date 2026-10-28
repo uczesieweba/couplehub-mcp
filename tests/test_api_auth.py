@@ -4,7 +4,8 @@ import unittest
 from unittest.mock import patch
 
 import httpx
-import server
+with patch.dict(os.environ, {'COUPLEHUB_AUTH_MODE': 'local', 'COUPLEHUB_API_BASE': 'http://127.0.0.1:8001/CoupleHub_DEV/api'}):
+    import server
 
 
 class ApiAuthenticationTests(unittest.TestCase):
