@@ -9,7 +9,8 @@ from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 from mcp.types import ToolAnnotations
 
-API_BASE = "https://host740041.xce.pl/CoupleHub_DEV/api"
+# No production default: local/staging runs must select their backend explicitly.
+API_BASE = os.environ.get("COUPLEHUB_API_BASE", "").rstrip("/")
 mcp = FastMCP("CoupleHub")
 
 # Annotation presets — all four hints explicitly set to avoid conservative defaults
@@ -19,8 +20,25 @@ DESTRUCTIVE = ToolAnnotations(readOnlyHint=False, destructiveHint=True,  idempot
 
 
 def api(method: str, path: str, **kwargs):
-    with httpx.Client(timeout=15) as client:
-        r = client.request(method, f"{API_BASE}{path}", **kwargs)
+    if not API_BASE:
+        raise RuntimeError("COUPLEHUB_API_BASE must be configured")
+    token = os.environ.get("COUPLEHUB_API_TOKEN", "")
+    if not token or token.strip() != token or any(c.isspace() for c in token):
+        raise RuntimeError("COUPLEHUB_API_TOKEN must be configured as a non-whitespace token")
+    base = httpx.URL(API_BASE)
+    if base.scheme != "https" and not (
+        base.scheme == "http" and base.host in {"127.0.0.1", "localhost", "::1"}
+    ):
+        raise RuntimeError("COUPLEHUB_API_BASE requires HTTPS outside localhost")
+    if base.username or base.password or base.query or base.fragment:
+        raise RuntimeError("COUPLEHUB_API_BASE must not contain credentials, a query, or a fragment")
+    if not path.startswith("/") or path.startswith("//"):
+        raise ValueError("API path must be relative to the configured backend")
+    headers = httpx.Headers(kwargs.pop("headers", {}))
+    headers["Authorization"] = f"Bearer {token}"
+    # Do not forward this credential to redirect destinations.
+    with httpx.Client(timeout=15, follow_redirects=False) as client:
+        r = client.request(method, f"{API_BASE}{path}", headers=headers, **kwargs)
         r.raise_for_status()
         return r.json()
 

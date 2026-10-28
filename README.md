@@ -1,5 +1,28 @@
 # CoupleHub MCP Server
 
+## Local/staging backend authentication
+
+Configure `COUPLEHUB_API_BASE` explicitly (there is no production default) and
+`COUPLEHUB_API_TOKEN` in the server environment. The PHP runtime must have the
+same token. The server adds the Bearer header automatically; ChatGPT does not
+need the PHP token in its prompts or tool arguments. Keep secrets outside Git.
+HTTPS is required except for a loopback development backend. Redirects are not
+followed, to avoid forwarding credentials to another destination.
+
+Tests: `python -m unittest discover -s tests -v` after installing requirements.
+
+For the cloud onboarding runtime, start local MariaDB and import the development
+dump first, then run `python tests/integration_auth.py`. This test starts temporary
+loopback PHP and SSE MCP servers, generates a token only in memory, overrides
+database settings to the local socket, checks rejection cases, and verifies MCP
+reads plus temporary chore CRUD/cleanup. It stops its test servers afterward.
+It does not connect to production or test ChatGPT's hosted connector/OAuth flow.
+
+This only protects MCP-to-PHP. The SSE endpoint below still has no client
+authentication and must not be exposed publicly with a privileged backend token.
+ChatGPT-to-MCP OAuth and a dashboard browser login remain prerequisites for a
+production rollout. Nothing in this change deploys or modifies production.
+
 ## Deploy to Render
 
 1. Push this repo to GitHub
