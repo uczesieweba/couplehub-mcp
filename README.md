@@ -21,7 +21,8 @@ It does not connect to production or test ChatGPT's hosted connector/OAuth flow.
 MCP client authentication now defaults to Auth0 and fails closed without its
 configuration. See [AUTH0_SETUP.md](AUTH0_SETUP.md) for tenant/application setup,
 household access restrictions and the remaining hosted verification steps.
-Dashboard browser login is still a prerequisite for a production rollout.
+The companion PHP branch now implements dashboard browser sessions, but their
+real hosted Auth0 round trip remains a prerequisite for a production rollout.
 Nothing in this change deploys or modifies production.
 
 ## Deploy to Render

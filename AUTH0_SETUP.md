@@ -2,9 +2,10 @@
 
 This branch protects ChatGPT-to-MCP with FastMCP's Auth0 OAuth proxy. The
 MCP-to-PHP Bearer credential stays separate and is never given to ChatGPT.
-Hosted sign-in has not been tested: a real tenant/application is still needed.
-The PHP dashboard still needs its browser session/login implementation before
-any production rollout of the PHP guard. Do not merge/deploy either branch yet.
+The tenant's public discovery/signing-key endpoints have been checked, but hosted
+sign-in has not been tested. The companion PHP branch implements browser login;
+see its AUTHENTICATION.md for hosting variables and an additional Auth0 callback.
+Do not merge/deploy until hosted sign-in and ChatGPT reconnection are verified.
 
 ## Create the Auth0 resources
 
@@ -67,6 +68,20 @@ instance can use a private persistent disk; multi-instance deployment requires
 shared OAuth state and is not configured by this branch. Protect state backups
 as credentials. Do not store them in Git or a public web directory.
 
+For the existing legacy ChatGPT connector, OpenAI documents the stable redirect
+`https://chatgpt.com/connector_platform_oauth_redirect`. Its allowlist value is:
+
+```text
+COUPLEHUB_MCP_REDIRECT_URIS=["https://chatgpt.com/connector_platform_oauth_redirect"]
+```
+
+This belongs in the MCP provider's environment, not Auth0's callback list.
+New connectors may use `https://chatgpt.com/connector/oauth/{callback_id}`;
+if ChatGPT supplies one, add that exact URL to the JSON list. Never allow a
+wildcard or guess the ID. A connector created without OAuth may need a new
+authenticated registration; keep the current connection until verification.
+Reference: https://developers.openai.com/apps-sdk/build/auth (Redirect URL).
+
 The public URL determines metadata, issuer and callback addresses. Changing it
 requires updating Auth0 callbacks and reconnecting ChatGPT. Provide the exact
 callback shown by the connector rather than guessing it from examples.
@@ -90,7 +105,7 @@ mode behind a public ASGI/WSGI server or forward its port.
 
 Before deployment, test the real Auth0 round trip, ChatGPT callback, allowed and
 denied accounts, required scope, token expiry/refresh and reconnect after server
-restart. Browser dashboard sessions are still separate outstanding work.
+restart. The PHP browser login's real hosted round trip also remains unverified.
 
 Render's `python server.py` ASGI path is the supported test target. The legacy
 `wsgi.py` adapter still requires `a3wsgi`, which is absent from requirements;
