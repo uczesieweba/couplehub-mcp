@@ -8,6 +8,16 @@
 4. Render auto-detects render.yaml and deploys
 5. Your MCP server will be at: https://couplehub-mcp.onrender.com/sse
 
+## Health checks
+
+Use `https://couplehub-mcp.onrender.com/health` for uptime monitoring and Render's
+health check path (`/health`). Both GET and HEAD return HTTP 200 immediately,
+without opening an MCP session or calling the CoupleHub API. GET returns `OK`.
+This checks that the server is responding; it does not check database availability.
+
+After deploying, switch any existing uptime monitor from `/sse` to `/health`.
+Keep ChatGPT and Claude connections on `/sse` as before.
+
 ## Connect to ChatGPT
 
 In ChatGPT settings → Connectors (or Tools) → Add MCP server:

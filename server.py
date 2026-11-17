@@ -8,9 +8,18 @@ from typing import Optional
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 from mcp.types import ToolAnnotations
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 
 API_BASE = "https://host740041.xce.pl/CoupleHub_DEV/api"
 mcp = FastMCP("CoupleHub")
+
+
+@mcp.custom_route("/health", methods=["GET", "HEAD"])
+async def health(request: Request) -> PlainTextResponse:
+    """Lightweight liveness check without opening an MCP session or calling the API."""
+    return PlainTextResponse("OK")
+
 
 # Annotation presets — all four hints explicitly set to avoid conservative defaults
 READ        = ToolAnnotations(readOnlyHint=True,  destructiveHint=False, idempotentHint=True,  openWorldHint=True)
